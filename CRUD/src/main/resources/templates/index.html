@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Tarefas</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Gerenciamento de Tarefas</h2>
+        <!-- Formulário para adicionar nova tarefa -->
+        <form id="tarefaForm">
+            <div class="form-group">
+                <label for="titulo">Título:</label>
+                <input type="text" class="form-control" id="titulo" required>
+            </div>
+            <div class="form-group">
+                <label for="descricao">Descrição:</label>
+                <input type="text" class="form-control" id="descricao" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Adicionar Tarefa</button>
+        </form>
+
+        <!-- Formulário de Edição de Tarefa -->
+        <form id="editarForm" style="display: none;">
+            <input type="hidden" id="tarefaId">
+            <div class="form-group">
+                <label for="edit_titulo">Título:</label>
+                <input type="text" class="form-control" id="edit_titulo" required>
+            </div>
+            <div class="form-group">
+                <label for="edit_descricao">Descrição:</label>
+                <input type="text" class="form-control" id="edit_descricao" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Atualizar Tarefa</button>
+        </form>
+
+        <!-- Tabela para exibir as tarefas -->
+        <table class="table mt-5">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Título</th>
+                    <th>Descrição</th>
+                    <th>Data de Criação</th>
+                    <th>Status</th> <!-- Nova coluna para exibir o status da tarefa -->
+                    <th>Concluída</th> <!-- Coluna para o checkbox de conclusão -->
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tarefasTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Bootstrap JS e jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        // Função para carregar as tarefas da API
+        function carregarTarefas() {
+            fetch('/tarefas')
+                .then(response => response.json())
+                .then(data => {
+                    const tarefasTableBody = document.getElementById('tarefasTableBody');
+                    tarefasTableBody.innerHTML = '';
+
+                    // Iterar sobre os dados das tarefas e adicionar linhas à tabela
+                    data.forEach(tarefa => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td id="id-${tarefa.id}">${tarefa.id}</td>
+                            <td id="titulo-${tarefa.id}" contenteditable="true">${tarefa.titulo}</td>
+                            <td id="descricao-${tarefa.id}" contenteditable="true">${tarefa.descricao}</td>
+                            <td id="dataCriacao-${tarefa.id}" contenteditable="true">${tarefa.dataCriacao}</td>
+                            <td>${tarefa.concluida ? 'Concluída' : 'Pendente'}</td>
+                            <td><input type="checkbox" ${tarefa.concluida ? 'checked' : ''} onclick="marcarConcluida(${tarefa.id}, this.checked)"></td>
+                            <td>
+                                <button class="btn btn-warning btn-sm" onclick="editarTarefa(${tarefa.id},'${tarefa.titulo}','${tarefa.descricao}')">Editar</button>
+                                <button class="btn btn-danger btn-sm" onclick="deletarTarefa(${tarefa.id})">Excluir</button>
+                            </td>
+                        `;
+                        tarefasTableBody.appendChild(tr);
+                    });
+                });
+        }
+
+        // Função para adicionar uma tarefa
+        function adicionarTarefa(event) {
+            event.preventDefault();
+            const titulo = document.getElementById('titulo').value;
+            const descricao = document.getElementById('descricao').value;
+
+            fetch('/tarefas', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ titulo, descricao })
+            })
+            .then(() => {
+                document.getElementById('titulo').value = '';
+                document.getElementById('descricao').value = '';
+                carregarTarefas();
+            });
+        }
+
+        // Função para marcar uma tarefa como concluída
+        function marcarConcluida(id, concluida) {
+            fetch(`/tarefas/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    id,
+                    concluida,
+                    titulo: document.getElementById(`titulo-${id}`).innerText,
+                    descricao: document.getElementById(`descricao-${id}`).innerText,
+                    dataCriacao: document.getElementById(`dataCriacao-${id}`).innerText
+                })
+            })
+            .then(() => carregarTarefas());
+        }
+
+        // Função para editar uma tarefa
+        function editarTarefa(id, titulo, descricao) {
+            document.getElementById('editarForm').style.display = 'block';
+            document.getElementById('tarefaForm').style.display = 'none';
+            document.getElementById('tarefaId').value = id;
+            document.getElementById('edit_titulo').value = titulo;
+            document.getElementById('edit_descricao').value = descricao;
+        }
+
+        // Função para atualizar uma tarefa
+        function atualizarTarefa(event) {
+            event.preventDefault();
+            const id = document.getElementById('tarefaId').value;
+            const titulo = document.getElementById('edit_titulo').value;
+            const descricao = document.getElementById('edit_descricao').value;
+
+            fetch(`/tarefas/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id, titulo, descricao })
+            })
+            .then(() => {
+                document.getElementById('editarForm').style.display = 'none';
+                document.getElementById('tarefaForm').style.display = 'block';
+                document.getElementById('edit_titulo').value = '';
+                document.getElementById('edit_descricao').value = '';
+                carregarTarefas();
+            });
+        }
+
+        // Função para deletar uma tarefa
+        function deletarTarefa(id) {
+            if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+                fetch(`/tarefas/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(() => carregarTarefas());
+            }
+        }
+
+        // Adicionar event listeners aos formulários
+        document.getElementById('tarefaForm').addEventListener('submit', adicionarTarefa);
+        document.getElementById('editarForm').addEventListener('submit', atualizarTarefa);
+        
+        // Carregar as tarefas quando a página carregar
+        carregarTarefas();
+    </script>
+</body>
+</html>
